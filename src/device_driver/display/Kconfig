@@ -32,7 +32,7 @@ if (ENABLE_DISPLAY_DRIVER)
             config DISPLAY_SPI_CLK
                 int "tft lcd spi spi freq"
                 default 48000000
-                
+
             config DISPLAY_SPI_CS_PIN
                 int "tft lcd cs pin"
                 range 0 64
@@ -52,11 +52,11 @@ if (ENABLE_DISPLAY_DRIVER)
                 int "tft lcd bl pin"
                 range 0 64
                 default 32
-            
+
             config DISPLAY_SPI_BL_PIN_POLARITY_HIGH
-                bool "tft lcd backlight high active "
+                bool "tft lcd backlight high active"
                 default y
-            
+
             config DISPLAY_SPI_BL_PWM
                 bool "enable tft lcd backlight pwm"
                 default y
