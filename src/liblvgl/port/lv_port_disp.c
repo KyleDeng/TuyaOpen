@@ -154,8 +154,6 @@ static void disp_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *p
         rect.width = area->x2 - area->x1 + 1;
         rect.height = area->y2 - area->y1 + 1;
 
-        bk_printf("rect.x:%d rect.y:%d rect.width:%d rect.height:%d\r\n", rect.x, rect.y, rect.width, rect.height);
-
         tkl_disp_blit(&sg_lcd, &buf, &rect);
 
         if (lv_disp_flush_is_last(disp_drv)) {
