@@ -7,6 +7,7 @@
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/display)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/touch)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/encoder)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/button)
 
 ########################################
 # Layer Configure

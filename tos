@@ -273,6 +273,20 @@ function build_exec()
     if [ ! -d "$PLATFORM_PATH" ]; then
         download_platform_by_name $PROJECT_PLATFORM $PROJECT_CHIP
         if [ "0" != "$?" ]; then
+            RET=1
+            continue
+        fi
+    fi
+    APP_DEFAULT_CONFIG="$PROJECT_ROOT/app_default.config"
+    APP_DEFAULT_CONFIG_PLT="$PROJECT_ROOT/app_default.config.$PROJECT_PLATFORM"
+    if [ -f $APP_DEFAULT_CONFIG_PLT ]; then
+        cp $APP_DEFAULT_CONFIG_PLT $APP_DEFAULT_CONFIG
+    fi
+
+    PLATFORM_PATH=$OPEN_SDK_ROOT/platform/$PROJECT_PLATFORM
+    if [ ! -d "$PLATFORM_PATH" ]; then
+        download_platform_by_name $PROJECT_PLATFORM $PROJECT_CHIP
+        if [ "0" != "$?" ]; then
             NOTE="Download platform [$PROJECT_PLATFORM] failed."
             show "${fore[red]}" "$NOTE"
             return 1
@@ -338,9 +352,13 @@ function menuconfig_exec()
     APP_DEFAULT_CONFIG="$PROJECT_ROOT/app_default.config"
     BOARDS_DIR="$OPEN_SDK_ROOT/boards"
 
+    APP_DEFAULT_CONFIG_PLT="$PROJECT_ROOT/app_default.config.$PROJECT_PLATFORM"
+    if [ -f $APP_DEFAULT_CONFIG_PLT ]; then
+        cp $APP_DEFAULT_CONFIG_PLT $APP_DEFAULT_CONFIG
+    fi
+
     mkdir -p $DOT_CONFIG_DIR
     cd $DOT_CONFIG_DIR
-
     bash ${KCONFIG_TOOLS}/run_menuconfig.sh "${KCONFIG_CATALOG}" "$DOT_CONFIG"
     python3 ${KCONFIG_TOOLS}/conf2cmake.py -c "${DOT_CONFIG_DIR}/${DOT_CONFIG}" -o "${CMAKE_CONFIG}"
 
