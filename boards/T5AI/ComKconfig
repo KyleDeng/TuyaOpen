@@ -47,6 +47,11 @@ menuconfig ENABLE_FLASH
             int "TUYA_FLASH_TYPE_MAX_PARTITION_NUM --- max support flash parttion number"
             default 10
     endif
+
+config ENABLE_EXT_RAM
+    bool "ENABLE_EXT_RAM --- support psram"
+    default y
+
 config ENABLE_ADC
     bool "ENABLE_ADC --- support adc"
     default n

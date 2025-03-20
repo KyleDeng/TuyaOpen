@@ -274,11 +274,6 @@ function build_exec()
             return 1
         fi
     fi
-    APP_DEFAULT_CONFIG="$PROJECT_ROOT/app_default.config"
-    APP_DEFAULT_CONFIG_PLT="$PROJECT_ROOT/app_default.config.$PROJECT_PLATFORM"
-    if [ -f $APP_DEFAULT_CONFIG_PLT ]; then
-        cp $APP_DEFAULT_CONFIG_PLT $APP_DEFAULT_CONFIG
-    fi
 
     mkdir -p $PROJECT_ROOT/.build
     cd $PROJECT_ROOT/.build
@@ -338,11 +333,6 @@ function menuconfig_exec()
     HEADER_IN_PATH="${KCONFIG_TOOLS}/config.h.in"
     APP_DEFAULT_CONFIG="$PROJECT_ROOT/app_default.config"
     BOARDS_DIR="$OPEN_SDK_ROOT/boards"
-
-    APP_DEFAULT_CONFIG_PLT="$PROJECT_ROOT/app_default.config.$PROJECT_PLATFORM"
-    if [ -f $APP_DEFAULT_CONFIG_PLT ]; then
-        cp $APP_DEFAULT_CONFIG_PLT $APP_DEFAULT_CONFIG
-    fi
 
     mkdir -p $DOT_CONFIG_DIR
     cd $DOT_CONFIG_DIR
