@@ -241,46 +241,28 @@ function build_exec()
     check_base_tool
     check_submodules
 
-    RET=0
     PROJ=$(cat $PROJECT_INI | grep -oP '(?<=CONFIG_PROJECT_NAME=").*(?="$)')
     if [ -z "$PROJ" ]; then
         NOTE="Can't found [CONFIG_PROJECT_NAME] in $PROJECT_INI."
         show "${fore[red]}" "$NOTE"
-        RET=1
+        return 1
     fi
     PROJECT_PLATFORM=$(cat $PROJECT_INI | grep -oP '(?<=CONFIG_PLATFORM_CHOICE=").*(?="$)')
     if [ -z "$PROJECT_PLATFORM" ]; then
         NOTE="Can't found [CONFIG_PLATFORM_CHOICE] in $PROJECT_INI."
         show "${fore[red]}" "$NOTE"
-        RET=1
+        return 1
     fi
     PROJECT_FRAMEWORK=$(cat $PROJECT_INI | grep -oP '(?<=CONFIG_FRAMEWORK_CHOICE=").*(?="$)')
     if [ -z "$PROJECT_PLATFORM" ]; then
         NOTE="Can't found [PROJECT_FRAMEWORK] in $PROJECT_INI."
         show "${fore[red]}" "$NOTE"
-        RET=1
-    fi
-    PROJECT_CHIP=$(cat $PROJECT_INI | grep -oP '(?<=CONFIG_CHIP_CHOICE=").*(?="$)')
-    if [ "$RET" != "0" ]; then
         return 1
     fi
+    PROJECT_CHIP=$(cat $PROJECT_INI | grep -oP '(?<=CONFIG_CHIP_CHOICE=").*(?="$)')
 
     if [ "$PROJECT_FRAMEWORK" = "arduino" ]; then
         check_arduino
-    fi
-
-    PLATFORM_PATH=$OPEN_SDK_ROOT/platform/$PROJECT_PLATFORM
-    if [ ! -d "$PLATFORM_PATH" ]; then
-        download_platform_by_name $PROJECT_PLATFORM $PROJECT_CHIP
-        if [ "0" != "$?" ]; then
-            RET=1
-            continue
-        fi
-    fi
-    APP_DEFAULT_CONFIG="$PROJECT_ROOT/app_default.config"
-    APP_DEFAULT_CONFIG_PLT="$PROJECT_ROOT/app_default.config.$PROJECT_PLATFORM"
-    if [ -f $APP_DEFAULT_CONFIG_PLT ]; then
-        cp $APP_DEFAULT_CONFIG_PLT $APP_DEFAULT_CONFIG
     fi
 
     PLATFORM_PATH=$OPEN_SDK_ROOT/platform/$PROJECT_PLATFORM
@@ -292,6 +274,11 @@ function build_exec()
             return 1
         fi
     fi
+    APP_DEFAULT_CONFIG="$PROJECT_ROOT/app_default.config"
+    APP_DEFAULT_CONFIG_PLT="$PROJECT_ROOT/app_default.config.$PROJECT_PLATFORM"
+    if [ -f $APP_DEFAULT_CONFIG_PLT ]; then
+        cp $APP_DEFAULT_CONFIG_PLT $APP_DEFAULT_CONFIG
+    fi
 
     mkdir -p $PROJECT_ROOT/.build
     cd $PROJECT_ROOT/.build
@@ -301,14 +288,14 @@ function build_exec()
     cmake -G Ninja $CMAKE_VERBOSE $OPEN_SDK_ROOT -DTOS_PROJECT_NAME=$PROJ -DTOS_PROJECT_ROOT=$PROJECT_ROOT -DTOS_PROJECT_PLATFORM=$PROJECT_PLATFORM -DTOS_FRAMEWORK=$PROJECT_FRAMEWORK -DTOS_PROJECT_CHIP=$PROJECT_CHIP
     ninja example $VERBOSE
     if [ "0" != "$?" ]; then
-        RET=1
+        return 1
     fi
     if [ -f "$PLATFORM_PATH/build_hock.sh" ]; then
         $PLATFORM_PATH/build_hock.sh "${PROJ}" "${PROJECT_PLATFORM}" "${PROJECT_FRAMEWORK}" "${PROJECT_CHIP}"
     fi
 
     cd - > /dev/null
-    return "$RET"
+    return 0
 }
 
 function clean_exec()
@@ -390,6 +377,12 @@ function savedef_exec()
 
 function set_example_exec()
 {
+    NOW_PLATFORM_FILE=$OPEN_SDK_ROOT/.set_example
+    NOW_PLATFORM="None"
+    if [ -f $NOW_PLATFORM_FILE ]; then
+        NOW_PLATFORM=`cat $NOW_PLATFORM_FILE`
+    fi
+    show "${fore[green]}" "Now used: $NOW_PLATFORM"
     PLATFORMS_DIR=$OPEN_SDK_ROOT/platform
     PLATFORM_YAML=$PLATFORMS_DIR/platform_config.yaml
     PLATFORM_NAMES=$(cat $PLATFORM_YAML | grep -oP '(?<=^- name: ).*(?=$)')
@@ -421,6 +414,7 @@ Set [$PLATFORM_NAME] example success.
 Please check $ROOT_EXAMPLE_DIR
 "
     show "${fore[green]}" "$NOTE"
+    echo $PLATFORM_NAME > $NOW_PLATFORM_FILE
 }
 
 function new_platform_exec()

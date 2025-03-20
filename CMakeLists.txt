@@ -147,7 +147,7 @@ add_custom_command(
     COMMAND
     ./build_example.sh "${EXAMPLE_NAME}" "${CONFIG_PROJECT_VERSION}" "${PLATFORM_NEED_HDIR}"
     "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}" "${PLATFORM_NEED_LIBS}"
-    "${EXECUTABLE_OUTPUT_PATH}" "build" "${PLATFORM_CHIP}" | tee /dev/tty
+    "${EXECUTABLE_OUTPUT_PATH}" "build" "${PLATFORM_CHIP}"
 
     COMMENT
     "[EXAMPLE] Generate execute file [${EXAMPLE_NAME}]"
