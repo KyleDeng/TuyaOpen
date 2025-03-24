@@ -32,6 +32,8 @@
 #include "speex_encode.h"
 #include "wav_encode.h"
 
+#include "tuya_display.h"
+
 typedef struct {
     TUYA_AUDIO_RECORDER_CONFIG_T config;
     BOOL_T is_running;
@@ -69,6 +71,7 @@ TUYA_AUDIO_RECORDER_CONTEXT *s_ctx = NULL;
 
 static void _ai_proc_task(void *arg);
 static OPERATE_RET ty_ai_session_id_set(TUYA_AUDIO_RECORDER_HANDLE handle, char *session_id);
+extern OPERATE_RET ai_audio_status_proc(void);
 
 static void _request_id_update(char *request_id)
 {
@@ -139,6 +142,21 @@ static void _tuya_voice_custom(char *type, cJSON *json)
         if (strcmp(type, "response") == 0 && cJSON_GetArraySize(json) == 0) {
             // If response is empty, it indicates an empty voice, play a prompt tone.
             tuya_audio_player_play_alert(AUDIO_ALART_TYPE_PLEASE_AGAIN, TRUE);
+        }
+
+        // syncDialogText without id
+        if (strcmp(type, "syncDialogText") == 0 && cJSON_GetObjectItem(json, "id") == NULL) {
+            cJSON *node = cJSON_GetObjectItem(json, "text");
+            cJSON *text = cJSON_GetObjectItem(json, "text");
+            if (text && text->valuestring && strlen(text->valuestring)) {
+                tuya_display_send_msg(TY_DISPLAY_TP_HUMAN_CHAT, text->valuestring, strlen(text->valuestring));
+            }
+        } else if (strcmp(type, "playTts") == 0) {
+            PR_DEBUG("playTts");
+            cJSON *text = cJSON_GetObjectItem(json, "text");
+            if (text && text->valuestring && strlen(text->valuestring)) {
+                tuya_display_send_msg(TY_DISPLAY_TP_AI_CHAT, text->valuestring, strlen(text->valuestring));
+            }
         }
     }
     tal_mutex_unlock(s_mutex);
@@ -239,6 +257,7 @@ static void _tuya_voice_stream_player(TUYA_VOICE_STREAM_E type, uint8_t *data, i
 
 void _tuya_voice_text_stream(TUYA_VOICE_STREAM_E type, uint8_t *data, int len)
 {
+
     switch (type) {
     case TUYA_VOICE_STREAM_START: {
     } break;
@@ -262,6 +281,9 @@ static OPERATE_RET _tuya_voice_register_extra_mqt_cb(void *data)
         return OPRT_OK;
     }
 
+    ai_audio_status_proc();
+
+    tuya_display_send_msg(TY_DISPLAY_TP_STAT_ONLINE, NULL, 0);
     tuya_audio_player_play_alert(AUDIO_ALART_TYPE_NETWORK_CONNECTED, TRUE);
 
     rt = tuya_voice_proto_start();
