@@ -44,13 +44,13 @@
 
 #define VAD_ACTIVE_RB_SIZE (300 * 16000 * 16 * 1 / 8 / 1000) // 300ms
 
-#define SPEAKER_ENABLE_PIN TUYA_GPIO_NUM_28
+#define SPEAKER_ENABLE_PIN SPEAKER_EN_PIN
 
 #define APP_BUTTON_NAME   "app_button"
-#define AUDIO_TRIGGER_PIN TUYA_GPIO_NUM_12
+#define AUDIO_TRIGGER_PIN CHAT_BUTTON_PIN
 static TDL_BUTTON_HANDLE sg_button_hdl = NULL;
 
-#define CHAT_LED_PIN TUYA_GPIO_NUM_1
+#define CHAT_LED_PIN CHAT_INDICATE_LED_PIN
 
 static TUYA_AUDIO_RECORDER_HANDLE ty_ai_handle = NULL;
 
@@ -290,9 +290,10 @@ static void _vad_init()
     vad_config.sample_rate = AUDIO_SAMPLE_RATE;
     vad_config.channel = AUDIO_CHANNEL;
     vad_config.vad_frame_duration = 10;
+    vad_config.scale = 1.0;
     ty_vad_app_init(&vad_config);
 
-    PR_ERR("vad start");
+    PR_NOTICE("vad start");
 }
 
 static OPERATE_RET _audio_init(void)
@@ -333,9 +334,6 @@ static OPERATE_RET _audio_init(void)
         PR_ERR("tkl_ai_start fail");
         goto err;
     }
-
-    // set mic volume
-    tkl_ai_set_vol(TKL_AUDIO_TYPE_BOARD, 0, 80);
 
     // set spk volume
     tuya_audio_player_set_volume(audio_volume_get());
