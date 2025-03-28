@@ -17,6 +17,7 @@
 #include "tuya_cloud_types.h"
 #include "tuya_iot.h"
 #include "tuya_config.h"
+#include "tkl_memory.h"
 #include "tuya_ringbuf.h"
 
 #include "tal_api.h"
@@ -30,7 +31,7 @@
 #include "tkl_video_in.h"
 #include "tkl_gpio.h"
 
-#include "tuya_display.h"
+// #include "tuya_display.h"
 #include "ty_vad_app.h"
 
 #define AUDIO_SAMPLE_RATE 16000
@@ -338,7 +339,8 @@ static OPERATE_RET _audio_init(void)
     tkl_ai_set_vol(TKL_AUDIO_TYPE_BOARD, 0, 80);
 
     // set spk volume
-    tuya_audio_player_set_volume(audio_volume_get());
+    // tuya_audio_player_set_volume(audio_volume_get());
+    tuya_audio_player_set_volume(20);
 
     return OPRT_OK;
 err:
@@ -411,10 +413,10 @@ static void app_chat_enable(uint8_t enable)
     TUYA_GPIO_LEVEL_E level = enable ? TUYA_GPIO_LEVEL_HIGH : TUYA_GPIO_LEVEL_LOW;
     sg_ai_chat.is_enable = enable;
 
-    TY_DISPLAY_TYPE_E disp_tp;
-    disp_tp = enable ? TY_DISPLAY_TP_STAT_LISTEN : TY_DISPLAY_TP_STAT_IDLE;
-
-    tuya_display_send_msg(disp_tp, NULL, 0);
+    // TY_DISPLAY_TYPE_E disp_tp;
+    // disp_tp = enable ? TY_DISPLAY_TP_STAT_LISTEN : TY_DISPLAY_TP_STAT_IDLE;
+    //
+    // tuya_display_send_msg(disp_tp, NULL, 0);
 
     tkl_gpio_write(CHAT_LED_PIN, level);
 

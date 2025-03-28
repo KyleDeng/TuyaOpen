@@ -32,8 +32,13 @@
 #include "lwip_init.h"
 #endif
 
-#include "tuya_display.h"
+// #include "tuya_display.h"
 #include "ai_audio_proc.h"
+
+// fix build error
+extern int reset_netconfig_init(void);
+extern int reset_netconfig_check(void);
+void audio_volume_set(uint8_t volue);
 
 /* Tuya device handle */
 tuya_iot_client_t ai_client;
@@ -157,7 +162,7 @@ void user_event_handler_on(tuya_iot_client_t *client, tuya_event_msg_t *event)
     case TUYA_EVENT_BIND_START:
         PR_INFO("Device Bind Start!");
         // 软重启，未配网，播报配网提示
-        tuya_display_send_msg(TY_DISPLAY_TP_STAT_NETCFG, NULL, 0);
+        // tuya_display_send_msg(TY_DISPLAY_TP_STAT_NETCFG, NULL, 0);
         tuya_audio_player_play_alert(AUDIO_ALART_TYPE_NETWORK_CFG, TRUE);
         break;
 
@@ -298,7 +303,7 @@ void user_main(void)
 
     PR_DEBUG("tuya_iot_init success");
 
-    tuya_display_init();
+    // tuya_display_init();
 
     ret = tuya_ai_audio_init();
     if (ret != OPRT_OK) {

@@ -20,14 +20,20 @@
 #include "tkl_thread.h"
 #include "ai_audio_media.h"
 #include "tuya_audio_player.h"
-#include <driver/aud_dac_types.h>
-#include <driver/aud_dac.h>
-#include <driver/dma.h>
-#include <driver/audio_ring_buff.h>
-#include <modules/mp3dec.h>
+#include "tkl_memory.h"
+// #include <driver/aud_dac_types.h>
+// #include <driver/aud_dac.h>
+// #include <driver/dma.h>
+// #include <driver/audio_ring_buff.h>
+// #include <modules/mp3dec.h>
+
+#ifndef MAINBUF_SIZE
+#define MAINBUF_SIZE 1940
+#endif
 
 #define TY_MP3_DECODER_MAVOICE_STATE_IN_BUFF_SIZE (MAINBUF_SIZE)
-#define PCM_SIZE_MAX                              (MAX_NSAMP * MAX_NCHAN * MAX_NGRAN * 2)
+// #define PCM_SIZE_MAX                              (MAX_NSAMP * MAX_NCHAN * MAX_NGRAN * 2)
+#define PCM_SIZE_MAX                              (576 * 2 * 2 * 2)
 #define MP3_STREAM_BUFF_MAX_LEN                   (1024 * 64 * 2)
 
 typedef struct {
@@ -41,7 +47,7 @@ typedef struct {
     QUEUE_HANDLE msg_queue;
     int bytes_left;
     int bytes_read;
-    HMP3Decoder decoder;
+    // HMP3Decoder decoder;
     BOOL_T is_eof;
     uint8_t read_buf[MAINBUF_SIZE];
     uint8_t pcm_buf[PCM_SIZE_MAX];
@@ -72,28 +78,28 @@ static OPERATE_RET _play_stat_fetch(TUYA_PLAYER_STAT *stat, uint32_t timeout)
     return OPRT_OK;
 }
 
-static int _mp3_find_id3(uint8_t *buf)
-{
-    char tag_header[10];
-    int tag_size = 0;
-
-    memcpy(tag_header, buf, sizeof(tag_header));
-
-    if (tag_header[0] == 'I' && tag_header[1] == 'D' && tag_header[2] == '3') {
-        tag_size = ((tag_header[6] & 0x7F) << 21) | ((tag_header[7] & 0x7F) << 14) | ((tag_header[8] & 0x7F) << 7) |
-                   (tag_header[9] & 0x7F);
-        PR_DEBUG("ID3 tag_size = %d", tag_size);
-        return tag_size + sizeof(tag_header);
-    } else {
-        // tag_header ignored
-        return 0;
-    }
-}
+// static int _mp3_find_id3(uint8_t *buf)
+// {
+//     char tag_header[10];
+//     int tag_size = 0;
+//
+//     memcpy(tag_header, buf, sizeof(tag_header));
+//
+//     if (tag_header[0] == 'I' && tag_header[1] == 'D' && tag_header[2] == '3') {
+//         tag_size = ((tag_header[6] & 0x7F) << 21) | ((tag_header[7] & 0x7F) << 14) | ((tag_header[8] & 0x7F) << 7) |
+//                    (tag_header[9] & 0x7F);
+//         PR_DEBUG("ID3 tag_size = %d", tag_size);
+//         return tag_size + sizeof(tag_header);
+//     } else {
+//         // tag_header ignored
+//         return 0;
+//     }
+// }
 
 static void _t5_mp3_play_task(void *arg)
 {
     OPERATE_RET ret = OPRT_OK;
-    MP3FrameInfo frame_info;
+    // MP3FrameInfo frame_info;
     int read_size = 0;
     TUYA_PLAYER_CONTEXT *ctx = (TUYA_PLAYER_CONTEXT *)arg;
     TUYA_PLAYER_STAT stat;
@@ -168,51 +174,51 @@ static void _t5_mp3_play_task(void *arg)
             }
         }
 
-        if (ctx->first_frame && ctx->bytes_left > 10) {
-            int id3_size = _mp3_find_id3(ctx->read_ptr);
-            if (id3_size > 0) {
-                ctx->read_ptr += id3_size;
-                ctx->bytes_left -= id3_size;
-            }
-            ctx->first_frame = FALSE;
-        }
+        // if (ctx->first_frame && ctx->bytes_left > 10) {
+        //     int id3_size = _mp3_find_id3(ctx->read_ptr);
+        //     if (id3_size > 0) {
+        //         ctx->read_ptr += id3_size;
+        //         ctx->bytes_left -= id3_size;
+        //     }
+        //     ctx->first_frame = FALSE;
+        // }
         // decode mp3 stream
-        offset = MP3FindSyncWord(ctx->read_ptr, ctx->bytes_left);
-        if (offset < 0) {
-            PR_ERR("MP3FindSyncWord not find!");
-            ctx->bytes_left = 0;
-            goto next_loop;
-        }
-        ctx->read_ptr += offset;
-        ctx->bytes_left -= offset;
-        int bytes_left = ctx->bytes_left;
-        ret = MP3Decode(ctx->decoder, &ctx->read_ptr, &ctx->bytes_left, (short *)ctx->pcm_buf, 0);
-        if (ret != ERR_MP3_NONE) {
-            PR_ERR("MP3Decode failed, ret=%d, offset=%d, bytes_left=%d, %d, read_size=%d", ret, offset, ctx->bytes_left,
-                   bytes_left, read_size);
-            // reset bytes_left if no data is decoded
-            if (bytes_left == ctx->bytes_left) {
-                ctx->bytes_left = 0;
-            }
-            goto next_loop;
-        }
-        if (ctx->bytes_left == bytes_left) {
-            PR_ERR("MP3Decode alert, bytes_left=%d, %d", ctx->bytes_left, bytes_left);
-        }
-
-        MP3GetLastFrameInfo(ctx->decoder, &frame_info);
-        tal_mutex_unlock(ctx->mutex);
-        PR_TRACE("MP3 frame info: bitrate=%d, nChans=%d, samprate=%d, outputSamps=%d", frame_info.bitrate,
-                 frame_info.nChans, frame_info.samprate, frame_info.outputSamps);
-
-        TKL_AUDIO_FRAME_INFO_T frame;
-        frame.pbuf = (char *)ctx->pcm_buf;
-        frame.used_size = frame_info.outputSamps * frame_info.bitsPerSample / 8;
-        ret = tkl_ao_put_frame(0, 0, NULL, &frame);
-        if (ret != OPRT_OK) {
-            PR_DEBUG("tkl_ao_put_frame failed, ret=%d", ret);
-            continue;
-        }
+        // offset = MP3FindSyncWord(ctx->read_ptr, ctx->bytes_left);
+        // if (offset < 0) {
+        //     PR_ERR("MP3FindSyncWord not find!");
+        //     ctx->bytes_left = 0;
+        //     goto next_loop;
+        // }
+        // ctx->read_ptr += offset;
+        // ctx->bytes_left -= offset;
+        // int bytes_left = ctx->bytes_left;
+        // ret = MP3Decode(ctx->decoder, &ctx->read_ptr, &ctx->bytes_left, (short *)ctx->pcm_buf, 0);
+        // if (ret != ERR_MP3_NONE) {
+        //     PR_ERR("MP3Decode failed, ret=%d, offset=%d, bytes_left=%d, %d, read_size=%d", ret, offset, ctx->bytes_left,
+        //            bytes_left, read_size);
+        //     // reset bytes_left if no data is decoded
+        //     if (bytes_left == ctx->bytes_left) {
+        //         ctx->bytes_left = 0;
+        //     }
+        //     goto next_loop;
+        // }
+        // if (ctx->bytes_left == bytes_left) {
+        //     PR_ERR("MP3Decode alert, bytes_left=%d, %d", ctx->bytes_left, bytes_left);
+        // }
+        //
+        // MP3GetLastFrameInfo(ctx->decoder, &frame_info);
+        // tal_mutex_unlock(ctx->mutex);
+        // PR_TRACE("MP3 frame info: bitrate=%d, nChans=%d, samprate=%d, outputSamps=%d", frame_info.bitrate,
+        //          frame_info.nChans, frame_info.samprate, frame_info.outputSamps);
+        //
+        // TKL_AUDIO_FRAME_INFO_T frame;
+        // frame.pbuf = (char *)ctx->pcm_buf;
+        // frame.used_size = frame_info.outputSamps * frame_info.bitsPerSample / 8;
+        // ret = tkl_ao_put_frame(0, 0, NULL, &frame);
+        // if (ret != OPRT_OK) {
+        //     PR_DEBUG("tkl_ao_put_frame failed, ret=%d", ret);
+        //     continue;
+        // }
         continue;
     next_loop:
         tal_mutex_unlock(ctx->mutex);
@@ -268,9 +274,9 @@ static OPERATE_RET _tuya_audio_player_destroy(void)
     if (ctx->stream_ringbuf) {
         tuya_ring_buff_free(ctx->stream_ringbuf);
     }
-    if (ctx->decoder) {
-        MP3FreeDecoder(ctx->decoder);
-    }
+    // if (ctx->decoder) {
+    //     MP3FreeDecoder(ctx->decoder);
+    // }
     if (ctx) {
         tkl_system_psram_free(ctx);
     }
@@ -304,11 +310,11 @@ static OPERATE_RET _tuya_audio_player_init(void)
     TUYA_CALL_ERR_GOTO(tal_mutex_create_init(&ctx->mutex), error);
     TUYA_CALL_ERR_GOTO(tal_mutex_create_init(&ctx->ringbuf_mutex), error);
 
-    ctx->decoder = MP3InitDecoder();
-    if (ctx->decoder == NULL) {
-        PR_ERR("MP3Decoder init failed");
-        goto error;
-    }
+    // ctx->decoder = MP3InitDecoder();
+    // if (ctx->decoder == NULL) {
+    //     PR_ERR("MP3Decoder init failed");
+    //     goto error;
+    // }
 
     s_ctx = ctx;
     TUYA_CALL_ERR_GOTO(tkl_thread_create_in_psram(&s_t5_player_hander, "tuya_audio_player", 1024 * 8, THREAD_PRIO_2,
@@ -342,8 +348,8 @@ OPERATE_RET tuya_audio_player_init(void)
     PR_DEBUG("tuya audio player init...");
 
     if (!is_init) {
-        MP3SetBuffMethodAlwaysFourAlignedAccess(mp3_private_alloc_psram, mp3_private_free_psram,
-                                                mp3_private_memset_psram);
+        // MP3SetBuffMethodAlwaysFourAlignedAccess(mp3_private_alloc_psram, mp3_private_free_psram,
+        //                                         mp3_private_memset_psram);
 
         TUYA_CALL_ERR_GOTO(tal_mutex_create_init(&s_mutex), error);
 
@@ -619,20 +625,20 @@ OPERATE_RET tuya_audio_player_start(void)
     }
     tal_mutex_lock(ctx->mutex);
     // FIXME: clear mp3 decoder
-    if (ctx->bytes_left > 0 || ctx->decoder == NULL) {
-        if (ctx->decoder) {
-            MP3FreeDecoder(ctx->decoder);
-        }
-        ctx->decoder = MP3InitDecoder();
-        if (ctx->decoder == NULL) {
-            ctx->stat = TUYA_PLAYER_STAT_ERROR;
-            ctx->is_playing = FALSE;
-            PR_ERR("MP3Decoder init failed");
-            tal_mutex_unlock(ctx->mutex);
-            return OPRT_COM_ERROR;
-        }
-        PR_DEBUG("MP3Decoder init success");
-    }
+    // if (ctx->bytes_left > 0 || ctx->decoder == NULL) {
+    //     if (ctx->decoder) {
+    //         MP3FreeDecoder(ctx->decoder);
+    //     }
+    //     ctx->decoder = MP3InitDecoder();
+    //     if (ctx->decoder == NULL) {
+    //         ctx->stat = TUYA_PLAYER_STAT_ERROR;
+    //         ctx->is_playing = FALSE;
+    //         PR_ERR("MP3Decoder init failed");
+    //         tal_mutex_unlock(ctx->mutex);
+    //         return OPRT_COM_ERROR;
+    //     }
+    //     PR_DEBUG("MP3Decoder init success");
+    // }
     ctx->stat = TUYA_PLAYER_STAT_PLAY;
     ctx->is_playing = TRUE;
     ctx->first_frame = TRUE;

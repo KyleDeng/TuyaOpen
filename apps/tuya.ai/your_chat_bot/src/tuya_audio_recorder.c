@@ -32,7 +32,7 @@
 #include "speex_encode.h"
 #include "wav_encode.h"
 
-#include "tuya_display.h"
+// #include "tuya_display.h"
 
 typedef struct {
     TUYA_AUDIO_RECORDER_CONFIG_T config;
@@ -149,13 +149,13 @@ static void _tuya_voice_custom(char *type, cJSON *json)
             cJSON *node = cJSON_GetObjectItem(json, "text");
             cJSON *text = cJSON_GetObjectItem(json, "text");
             if (text && text->valuestring && strlen(text->valuestring)) {
-                tuya_display_send_msg(TY_DISPLAY_TP_HUMAN_CHAT, text->valuestring, strlen(text->valuestring));
+                // tuya_display_send_msg(TY_DISPLAY_TP_HUMAN_CHAT, text->valuestring, strlen(text->valuestring));
             }
         } else if (strcmp(type, "playTts") == 0) {
             PR_DEBUG("playTts");
             cJSON *text = cJSON_GetObjectItem(json, "text");
             if (text && text->valuestring && strlen(text->valuestring)) {
-                tuya_display_send_msg(TY_DISPLAY_TP_AI_CHAT, text->valuestring, strlen(text->valuestring));
+                // tuya_display_send_msg(TY_DISPLAY_TP_AI_CHAT, text->valuestring, strlen(text->valuestring));
             }
         }
     }
@@ -283,7 +283,7 @@ static OPERATE_RET _tuya_voice_register_extra_mqt_cb(void *data)
 
     ai_audio_status_proc();
 
-    tuya_display_send_msg(TY_DISPLAY_TP_STAT_ONLINE, NULL, 0);
+    // tuya_display_send_msg(TY_DISPLAY_TP_STAT_ONLINE, NULL, 0);
     tuya_audio_player_play_alert(AUDIO_ALART_TYPE_NETWORK_CONNECTED, TRUE);
 
     rt = tuya_voice_proto_start();
