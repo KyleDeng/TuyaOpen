@@ -59,6 +59,7 @@ typedef enum {
     CLI_NULL_KEY = '\0',
     CLI_ESC_KEY = 0x1b,
     CLI_ENTER_KEY = '\r',
+    CLI_ENTER2_KEY = '\n',
     CLI_BACKSPACE_KEY = '\b',
     CLI_BACKSPACE2_KEY = '\177',
     CLI_TABLE_KEY = '\t',
@@ -94,6 +95,7 @@ typedef struct {
 
 /*============================ PROTOTYPES ====================================*/
 static void cli_hello(int argc, char *argv[]);
+static void cli_authorize(int argc, char *argv[]);
 static void cli_print_prompt(cli_t *cli);
 
 /*============================ LOCAL VARIABLES ===============================*/
@@ -101,11 +103,18 @@ static cli_t *s_cli_handle = NULL;
 static SLIST_HEAD s_cli_dynamic_table;
 static cli_cmd_table_t s_cli_static_table[CLI_CMD_TABLE_NUM];
 
-static const cli_cmd_t s_cli_cmd[] = {{
+static const cli_cmd_t s_cli_cmd[] = {
+    {
     .name = "hello",
     .help = "print helo world",
     .func = cli_hello,
-}};
+    },
+    {
+    .name = "authorize",
+    .help = "authorize [uuid] [authkey]",
+    .func = cli_authorize,
+    },
+};
 
 /*============================ IMPLEMENTATION ================================*/
 static int32_t cli_out_put(TUYA_UART_NUM_E port_id, char *out_str, uint32_t len)
@@ -124,6 +133,35 @@ static void cli_print_string(cli_t *cli, char *string)
 static void cli_hello(int argc, char *argv[])
 {
     cli_print_string(s_cli_handle, "helo world");
+}
+
+static void cli_authorize(int argc, char *argv[])
+{
+    if(argc < 3) {
+        cli_print_string(s_cli_handle, "Use like: authorize uuidxxxxxxxxxxxxxxxx keyxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        return;
+    }
+
+    char* uuid = argv[1];
+    char* authkey = argv[2];
+    int uuid_len = strlen(uuid);
+    int authkey_len = strlen(authkey);
+    PR_DEBUG("uuid:%s(%d)", uuid, uuid_len);
+    PR_TRACE("authkey:%s(%d)", authkey, authkey_len);
+    if ((uuid_len != 20) || (authkey_len != 32)) {
+        PR_ERR("uuid len not equal 20 or authkey len not equal 32.");
+        cli_print_string(s_cli_handle, "uuid len not equal 20 or authkey len not equal 32.");
+        return;
+    }
+    if ((tal_kv_set("UUID_TUYAOPEN", uuid, uuid_len))
+        && (tal_kv_set("AUTHKEY_TUYAOPEN", authkey, authkey_len))) {
+        PR_INFO("Authorization succeeds.");
+        cli_print_string(s_cli_handle, "Authorization succeeds.");
+    }
+    else {
+        PR_ERR("Authorization failure.");
+        cli_print_string(s_cli_handle, "Authorization failure.");
+    }
 }
 
 static cli_cmd_t *cli_cmd_find_with_name(char *name)
@@ -375,7 +413,7 @@ static int cli_key_detect(TUYA_UART_NUM_E port_id, char *data, cli_key_t *key)
         switch (state) {
 
         case CHECK_KEY:
-            if (CLI_ENTER_KEY == ch || CLI_BACKSPACE_KEY == ch || CLI_BACKSPACE2_KEY == ch || CLI_TABLE_KEY == ch) {
+            if (CLI_ENTER_KEY == ch  || CLI_ENTER2_KEY == ch || CLI_BACKSPACE_KEY == ch || CLI_BACKSPACE2_KEY == ch || CLI_TABLE_KEY == ch) {
                 *key = ch;
                 return OPRT_OK;
             } else if (CLI_ESC_KEY == ch) {
@@ -612,6 +650,7 @@ static void cli_key_app(cli_t *cli, cli_key_t key)
         break;
 
     case CLI_ENTER_KEY:
+    case CLI_ENTER2_KEY:
         cli_enter_key(cli);
         break;
 
@@ -761,7 +800,7 @@ int tal_cli_init_with_uart(uint8_t uart_num)
         PR_ERR("uart init failed", result);
         goto __exit;
     }
-    tal_cli_cmd_register((cli_cmd_t *)&s_cli_cmd, 1);
+    tal_cli_cmd_register((cli_cmd_t *)&s_cli_cmd, sizeof(s_cli_cmd)/sizeof(cli_cmd_t));
 
     THREAD_CFG_T param;
 
