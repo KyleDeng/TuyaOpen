@@ -15,6 +15,8 @@
 #include "tuya_config.h"
 #include "tuya_iot.h"
 #include "tuya_iot_dp.h"
+#include "tal_cli.h"
+#include "tuya_authorize.h"
 #include <assert.h>
 #if defined(ENABLE_WIFI) && (ENABLE_WIFI == 1)
 #include "netconn_wifi.h"
@@ -212,13 +214,14 @@ void user_main()
     tal_sw_timer_init();
     tal_workq_init();
     tal_cli_init();
+    tuya_authorize_init();
     tuya_app_cli_init();
 
     reset_netconfig_start();
 
     tuya_iot_license_t license;
 
-    if (OPRT_OK != tuya_iot_license_read(&license)) {
+    if (OPRT_OK != tuya_authorize_read(&license)) {
         license.uuid = TUYA_OPENSDK_UUID;
         license.authkey = TUYA_OPENSDK_AUTHKEY;
         PR_WARN("Replace the TUYA_OPENSDK_UUID and TUYA_OPENSDK_AUTHKEY contents, otherwise the demo cannot work.\n \

@@ -95,7 +95,6 @@ typedef struct {
 
 /*============================ PROTOTYPES ====================================*/
 static void cli_hello(int argc, char *argv[]);
-static void cli_authorize(int argc, char *argv[]);
 static void cli_print_prompt(cli_t *cli);
 
 /*============================ LOCAL VARIABLES ===============================*/
@@ -108,11 +107,6 @@ static const cli_cmd_t s_cli_cmd[] = {
     .name = "hello",
     .help = "print helo world",
     .func = cli_hello,
-    },
-    {
-    .name = "authorize",
-    .help = "authorize [uuid] [authkey]",
-    .func = cli_authorize,
     },
 };
 
@@ -133,35 +127,6 @@ static void cli_print_string(cli_t *cli, char *string)
 static void cli_hello(int argc, char *argv[])
 {
     cli_print_string(s_cli_handle, "helo world");
-}
-
-static void cli_authorize(int argc, char *argv[])
-{
-    if(argc < 3) {
-        cli_print_string(s_cli_handle, "Use like: authorize uuidxxxxxxxxxxxxxxxx keyxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-        return;
-    }
-
-    char* uuid = argv[1];
-    char* authkey = argv[2];
-    int uuid_len = strlen(uuid);
-    int authkey_len = strlen(authkey);
-    PR_DEBUG("uuid:%s(%d)", uuid, uuid_len);
-    PR_TRACE("authkey:%s(%d)", authkey, authkey_len);
-    if ((uuid_len != 20) || (authkey_len != 32)) {
-        PR_ERR("uuid len not equal 20 or authkey len not equal 32.");
-        cli_print_string(s_cli_handle, "uuid len not equal 20 or authkey len not equal 32.");
-        return;
-    }
-    if ((tal_kv_set("UUID_TUYAOPEN", uuid, uuid_len))
-        && (tal_kv_set("AUTHKEY_TUYAOPEN", authkey, authkey_len))) {
-        PR_INFO("Authorization succeeds.");
-        cli_print_string(s_cli_handle, "Authorization succeeds.");
-    }
-    else {
-        PR_ERR("Authorization failure.");
-        cli_print_string(s_cli_handle, "Authorization failure.");
-    }
 }
 
 static cli_cmd_t *cli_cmd_find_with_name(char *name)
@@ -746,6 +711,19 @@ static int cli_cmd_register(cli_cmd_t *cmd, uint8_t num)
     tuya_slist_add_head(&s_cli_dynamic_table, &node->next);
 
     return OPRT_OK;
+}
+
+/**
+ * @brief cli echo string
+ *
+ * @param[in] string context
+ *
+ * @return None
+ *
+ */
+void tal_cli_echo(char *string)
+{
+    cli_print_string(s_cli_handle, string);
 }
 
 /**
