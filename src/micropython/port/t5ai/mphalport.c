@@ -14,23 +14,23 @@
 static TUYA_UART_NUM_E sg_repl_uart_num = TUYA_UART_NUM_0;
 
 /* System tick functions */
-uint32_t mp_hal_ticks_ms(void)
+mp_uint_t mp_hal_ticks_ms(void)
 {
     return tal_system_get_millisecond();
 }
 
-uint32_t mp_hal_ticks_us(void)
+mp_uint_t mp_hal_ticks_us(void)
 {
     /* TuyaOpen doesn't provide microsecond precision, approximate */
     return tal_system_get_millisecond() * 1000;
 }
 
-void mp_hal_delay_ms(uint32_t ms)
+void mp_hal_delay_ms(mp_uint_t ms)
 {
     tal_system_sleep(ms);
 }
 
-void mp_hal_delay_us(uint32_t us)
+void mp_hal_delay_us(mp_uint_t us)
 {
     /* TuyaOpen sleep has millisecond precision minimum */
     if (us >= 1000) {
@@ -62,10 +62,11 @@ void mp_hal_stdout_tx_str(const char *str)
     mp_hal_stdout_tx_strn(str, strlen(str));
 }
 
-void mp_hal_stdout_tx_strn(const char *str, size_t len)
+mp_uint_t mp_hal_stdout_tx_strn(const char *str, size_t len)
 {
     /* Send to UART */
     tal_uart_write(sg_repl_uart_num, (const uint8_t*)str, (uint32_t)len);
+    return len;  /* Return number of bytes written */
 }
 
 void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len)
@@ -98,6 +99,14 @@ void mp_hal_enable_irq(void)
 {
     /* TODO: Implement interrupt enable for T5AI */
     /* tal_cpu_irq_enable(); */
+}
+
+/* Set the character that triggers keyboard interrupt (usually Ctrl+C) */
+static int interrupt_char = -1;
+
+void mp_hal_set_interrupt_char(int c)
+{
+    interrupt_char = c;
 }
 
 uint32_t mp_hal_get_cpu_freq(void)

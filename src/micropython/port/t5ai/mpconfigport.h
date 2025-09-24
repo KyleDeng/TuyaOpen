@@ -6,17 +6,21 @@
 #ifndef MICROPYTHON_MPCONFIGPORT_H
 #define MICROPYTHON_MPCONFIGPORT_H
 
+/* Include necessary system headers */
+#include <stdint.h>  /* For intptr_t, uintptr_t types */
+#include <alloca.h>  /* For alloca() function */
+
 /* MicroPython version and build information */
 #define MICROPY_HW_BOARD_NAME       "TuyaOpen-T5AI"
 #define MICROPY_HW_MCU_NAME         "BK7258"
 #define MICROPY_PY_SYS_PLATFORM     "T5AI"
 
 /* Python language features - minimal set */
-#define MICROPY_ENABLE_COMPILER     (0)  /* Start without compiler */
-#define MICROPY_ENABLE_GC           (0)  /* Start without GC */
-#define MICROPY_HELPER_REPL         (0)  /* Start without REPL */
+#define MICROPY_ENABLE_COMPILER     (1)  /* Enable compiler for minimal functionality */
+#define MICROPY_ENABLE_GC           (1)  /* Enable GC for memory management */
+#define MICROPY_HELPER_REPL         (1)  /* Enable REPL for testing */
 #define MICROPY_MODULE_FROZEN_MPY   (0)
-#define MICROPY_QSTR_BYTES_IN_HASH  (1)
+#define MICROPY_QSTR_BYTES_IN_HASH  (2)  /* Use 2 bytes for hash to avoid overflow */
 
 /* Core Python features - disabled for minimal build */
 #define MICROPY_PY_BUILTINS_FLOAT   (0)
@@ -38,6 +42,13 @@
 #define MICROPY_OPT_COMPUTED_GOTO   (0)
 #define MICROPY_OPT_MPZ_BITWISE     (0)
 
+/* Platform specific - ARM Cortex-M33 */
+#define MICROPY_NLR_THUMB           (1)
+#define MICROPY_LONGINT_IMPL        (MICROPY_LONGINT_IMPL_MPZ)
+
+/* Use the minimal configuration level */
+#define MICROPY_CONFIG_ROM_LEVEL    (MICROPY_CONFIG_ROM_LEVEL_MINIMUM)
+
 /* Type definitions for T5AI */
 typedef intptr_t mp_int_t;
 typedef uintptr_t mp_uint_t;
@@ -49,6 +60,13 @@ typedef long mp_off_t;
 /* Minimal heap size for testing */
 #define MICROPY_HEAP_SIZE           (8 * 1024)
 
+/* Readline configuration - disable history for minimal build */
+#define MICROPY_PY_SYS_STDFILES     (0)
+#define MICROPY_HELPER_READLINE     (0)  /* Disable readline for now */
+
+/* Port-specific state structure - empty for minimal build */
+#define MICROPY_PORT_ROOT_POINTERS
+
 /* Include HAL header */
 #include "mphalport.h"
 
@@ -58,9 +76,6 @@ typedef long mp_off_t;
 /* Define some basic functions as macros for minimal build */
 #define mp_type_print(x, y, z)
 #define mp_type_make_new(x, y, z, w)
-
-/* Root pointers for GC (when enabled) */
-#define MICROPY_PORT_ROOT_POINTERS
 
 /* Miscellaneous settings */
 #define MICROPY_KBD_EXCEPTION       (0)

@@ -230,37 +230,193 @@ LTO=1: CFLAGS += -flto=auto
 
 ## 编译流程
 
+### 完整编译流程概览
+
+MicroPython 的编译过程分为四个主要阶段：
+
+```
+[准备阶段] → [预生成阶段] → [编译阶段] → [链接阶段] → [固件生成]
+     ↓            ↓              ↓            ↓            ↓
+ mpy-cross    生成头文件     编译C源码      链接目标文件    生成bin/hex
+  (可选)      (必需)         (必需)        (必需)         (必需)
+```
+
 ### 1. 准备阶段
 
+#### 1.1 编译 mpy-cross（可选）
 ```bash
-# 编译交叉编译器 mpy-cross
+# 仅在需要冻结 Python 模块时需要
 cd mpy-cross
 make
+```
 
-# 初始化子模块
+**说明**：
+- mpy-cross 是独立的交叉编译器，将 .py 文件编译为 .mpy 字节码
+- 如果不使用 frozen 模块（MICROPY_MODULE_FROZEN_MPY=0），可跳过此步
+- 用于将 Python 代码预编译并嵌入固件，节省 RAM
+
+#### 1.2 初始化子模块
+```bash
 cd ports/stm32
 make BOARD=NUCLEO_F446RE submodules
 ```
 
-### 2. 编译阶段
+### 2. 预生成阶段（编译前必需）
+
+这是编译前最关键的步骤，必须生成所有必需的头文件：
+
+#### 2.1 QSTR（字符串池）生成
+
+**生成流程**：
+```bash
+# 步骤1：扫描所有源文件，提取 MP_QSTR_* 使用
+python tools/makeqstrdefs.py pp qstr.i.last > qstr.split
+
+# 步骤2：收集所有 QSTR 定义
+cat py/qstrdefs.h qstr.split | python tools/makeqstrdata.py > qstrdefs.collected.h
+
+# 步骤3：生成最终的 QSTR 头文件
+python tools/makeqstrdata.py qstrdefs.collected.h > qstrdefs.generated.h
+```
+
+**扫描的源文件范围**：
+- `py/*.c` - 所有核心 VM 文件（除了 nlr*.c）
+- `extmod/*.c` - 扩展模块文件（如果启用）
+- `shared/runtime/*.c` - 运行时支持文件
+- `shared/readline/*.c` - 命令行编辑
+- `ports/<port>/*.c` - 平台特定文件
+
+**生成的文件**：
+- `genhdr/qstrdefs.collected.h` - 收集的 QSTR 定义
+- `genhdr/qstrdefs.generated.h` - 最终的 QSTR 枚举和数据
+
+#### 2.2 版本信息生成
+
+```bash
+python tools/makeversionhdr.py genhdr/mpversion.h
+```
+
+**生成内容**：
+```c
+#define MICROPY_GIT_TAG "v1.23.0"
+#define MICROPY_GIT_HASH "abc123"
+#define MICROPY_BUILD_DATE "2024-03-15"
+#define MICROPY_VERSION_MAJOR (1)
+#define MICROPY_VERSION_MINOR (23)
+#define MICROPY_VERSION_MICRO (0)
+```
+
+#### 2.3 模块定义生成
+
+```bash
+# 扫描所有 MP_REGISTER_MODULE 宏
+python tools/makemoduledefs.py $(SRC_QSTR) > genhdr/moduledefs.h
+```
+
+**扫描内容**：
+- `MP_REGISTER_MODULE(MP_QSTR_module_name, module_obj)` - 模块注册
+- `MP_REGISTER_EXTENSIBLE_MODULE(...)` - 可扩展模块注册
+
+**生成内容**：
+```c
+// 自动生成的模块表条目
+MODULE_DEF_MP_QSTR_BUILTINS,
+MODULE_DEF_MP_QSTR_SYS,
+MODULE_DEF_MP_QSTR_GC,
+// ...
+```
+
+#### 2.4 GC 根指针生成
+
+```bash
+# 扫描所有 MP_REGISTER_ROOT_POINTER 宏
+python tools/make_root_pointers.py $(SRC_QSTR) > genhdr/root_pointers.h
+```
+
+**扫描内容**：
+```c
+MP_REGISTER_ROOT_POINTER(mp_obj_t pyb_stdio_uart);
+MP_REGISTER_ROOT_POINTER(mp_obj_t pyb_config_main);
+```
+
+**生成内容**：
+```c
+// 添加到 struct _mp_state_vm_t 的成员
+mp_obj_t pyb_stdio_uart;
+mp_obj_t pyb_config_main;
+```
+
+#### 2.5 压缩数据生成
+
+```bash
+# 扫描所有 MP_ERROR_TEXT 字符串
+python tools/makecompresseddata.py $(SRC_QSTR) > genhdr/compressed.data.h
+```
+
+**功能**：
+- 提取所有错误消息字符串
+- 应用压缩算法（词频替换）
+- 生成压缩数据表
+
+**生成内容**：
+```c
+#define MP_MAX_UNCOMPRESSED_TEXT_LEN (80)
+MP_COMPRESSED_DATA("compressed_string_data_here")
+MP_MATCH_COMPRESSED("original", "compressed")
+```
+
+#### 2.6 Frozen 模块生成（可选）
+
+```bash
+# 如果定义了 FROZEN_MANIFEST
+python tools/makemanifest.py \
+    -o frozen_content.c \
+    -v "MPY_DIR=$(TOP)" \
+    -v "PORT_DIR=$(shell pwd)" \
+    -b "$(BUILD)" \
+    $(FROZEN_MANIFEST)
+```
+
+**功能**：
+- 预编译 Python 模块为字节码
+- 生成 C 代码嵌入固件
+- 节省运行时 RAM
+
+### 2.7 生成文件依赖关系图
+
+```
+源文件扫描
+    ↓
+┌─────────────────────────────────────────────┐
+│           预生成头文件（必需）                  │
+├─────────────────────────────────────────────┤
+│ 1. qstrdefs.generated.h    - QSTR定义        │
+│ 2. mpversion.h             - 版本信息        │
+│ 3. moduledefs.h            - 模块定义表      │
+│ 4. root_pointers.h         - GC根指针        │
+│ 5. compressed.data.h       - 压缩错误文本    │
+│ 6. qstr_pool.h             - QSTR池结构      │
+└─────────────────────────────────────────────┘
+    ↓
+编译 C 源文件
+```
+
+### 3. 编译阶段
+
+只有在所有头文件生成完成后，才能开始编译：
 
 ```bash
 # 预处理 -> 编译 -> 汇编
 arm-none-eabi-gcc -c source.c -o source.o \
+    -I. -Ibuild -Igenhdr \           # 包含生成的头文件目录
     -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 \
     -Os -fdata-sections -ffunction-sections
 
 # 生成依赖关系
 arm-none-eabi-gcc -MM -MF source.d source.c
-
-# QSTR（字符串池）生成
-python tools/makeqstrdata.py > qstrdefs.generated.h
-
-# 冻结 Python 模块
-python tools/make-frozen.py frozen_modules > frozen.c
 ```
 
-### 3. 链接阶段
+### 4. 链接阶段
 
 ```bash
 arm-none-eabi-gcc \
@@ -273,7 +429,7 @@ arm-none-eabi-gcc \
     -o firmware.elf
 ```
 
-### 4. 固件生成
+### 5. 固件生成
 
 ```bash
 # ELF -> BIN（二进制）
@@ -421,16 +577,100 @@ SECTIONS {
 ## 特殊编译技术
 
 ### 1. QSTR 优化
-所有字符串在编译时收集到字符串池，减少内存使用。
+
+**原理**：将所有字符串在编译时收集到统一的字符串池
+
+**优势**：
+- 相同字符串只存储一次
+- 字符串比较变为整数比较（O(1)复杂度）
+- 显著减少内存占用
+
+**实现细节**：
+```c
+// 使用前
+if (strcmp(str, "print") == 0) { ... }  // 字符串比较
+
+// QSTR 优化后
+if (str == MP_QSTR_print) { ... }       // 整数比较
+```
 
 ### 2. 冻结模块
-Python 代码预编译为字节码嵌入固件，节省 RAM 空间。
+
+**原理**：Python 代码在编译时转换为字节码，直接嵌入固件
+
+**类型**：
+- **Frozen String**: Python 源码以字符串形式存储在 Flash
+- **Frozen MPY**: 预编译的字节码存储在 Flash
+
+**优势**：
+- 节省 RAM（代码存在 Flash 中）
+- 加快启动速度（无需运行时编译）
+- 保护源代码（MPY 格式）
 
 ### 3. ROM 压缩
-使用压缩算法减小固件大小。
+
+**压缩技术**：
+- 错误消息压缩（词频替换）
+- 代码段压缩（可选的 XIP 压缩）
+- 数据段压缩
+
+**实现**：
+```python
+# makecompresseddata.py 使用词频分析
+# 高频词汇用短编码替换
+"memory allocation failed" → "\x80\x81\x82"  # 压缩表示
+```
 
 ### 4. 内联汇编
-关键代码使用 Thumb 汇编优化，提高执行效率。
+
+**使用场景**：
+- GC 根指针扫描（gchelper.s）
+- 上下文切换（nlr 实现）
+- 性能关键路径
+
+**示例**：
+```c
+// 内联 Thumb 汇编示例
+__attribute__((naked)) void gc_helper_get_regs(regs_t *regs) {
+    __asm volatile (
+        "str r0, [r0, #0]\n"
+        "str r1, [r0, #4]\n"
+        // ...
+        "bx lr\n"
+    );
+}
+```
+
+## 编译前准备清单
+
+### 必需步骤（按顺序）
+
+1. **工具链安装**
+   - [ ] 安装 Python 3.x
+   - [ ] 安装交叉编译器（如 arm-none-eabi-gcc）
+   - [ ] 安装 make 工具
+
+2. **mpy-cross 构建**（如果使用 frozen 模块）
+   - [ ] 编译 mpy-cross 工具
+   - [ ] 验证 mpy-cross 可执行
+
+3. **头文件生成**（编译前必需）
+   - [ ] 生成 qstrdefs.generated.h
+   - [ ] 生成 mpversion.h
+   - [ ] 生成 moduledefs.h
+   - [ ] 生成 root_pointers.h
+   - [ ] 生成 compressed.data.h
+   - [ ] 确保 qstr_pool.h 存在
+
+4. **源文件准备**
+   - [ ] 确认所有源文件就位
+   - [ ] 配置文件设置完成
+   - [ ] 平台适配代码准备
+
+5. **编译环境检查**
+   - [ ] 包含路径正确设置
+   - [ ] 编译选项配置完成
+   - [ ] 链接脚本准备就绪
 
 ## 编译选项说明
 

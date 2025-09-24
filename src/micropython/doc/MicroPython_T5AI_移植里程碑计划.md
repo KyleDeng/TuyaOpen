@@ -32,7 +32,13 @@
    ├── include/
    ├── port/
    │   └── t5ai/
-   └── core/
+   ├── mpy/              # MicroPython 源码（保持原结构）
+   │   ├── py/          # 核心 VM + 生成工具
+   │   ├── extmod/
+   │   ├── shared/
+   │   ├── lib/
+   │   └── tools/       # 其他工具
+   └── genhdr/          # 生成的头文件
    ```
 
 2. **配置 CMake 集成**
@@ -54,27 +60,79 @@
 ### 里程碑 2：核心运行时移植 (7-10天)
 **目标**：实现 MicroPython 核心解释器在 T5AI 上运行
 
+#### 实施策略
+**"完整复制，选择性编译"** - 复制 MicroPython 所有源码，通过 CMakeLists.txt 控制编译范围，从最小核心逐步扩展
+
+#### 重要约定
+**源码复制规则**：所有从 MicroPython 仓库复制的文件都放置在 `TuyaOpen/src/micropython/mpy/` 目录下，并保持原有的目录结构不变。
+
+目录映射关系：
+- `micropython/py/` → `TuyaOpen/src/micropython/mpy/py/` （包含生成工具）
+- `micropython/extmod/` → `TuyaOpen/src/micropython/mpy/extmod/`
+- `micropython/shared/` → `TuyaOpen/src/micropython/mpy/shared/`
+- `micropython/lib/` → `TuyaOpen/src/micropython/mpy/lib/`
+- `micropython/tools/` → `TuyaOpen/src/micropython/mpy/tools/`
+
+**注意**：生成工具脚本（如 makeqstrdata.py、makemoduledefs.py 等）位于 `py/` 目录中，而非 `tools/` 目录。
+
+**头文件生成策略**：
+- QSTR 文件通过扫描源码动态生成
+- mpversion.h 使用固定内容（不需要 Git 信息获取）
+- 其他头文件根据实际需要生成
+
 #### 主要任务：
-1. **移植 py 核心库**
-   - 集成 py/*.c 核心文件
-   - 配置 QSTR 生成机制
-   - 实现内存分配器对接 (gc.c)
 
-2. **实现硬件抽象层**
-   - 系统时钟 (mp_hal_ticks_ms)
-   - 串口输出 (mp_hal_stdout_tx_*)
-   - 延时函数 (mp_hal_delay_*)
-   - 中断管理
+1. **源码和工具准备**
+   - 复制 MicroPython 完整源码到 `TuyaOpen/src/micropython/mpy/`
+     * `mpy/py/` - 核心虚拟机和生成工具
+       - 所有 .c 和 .h 文件（核心 VM）
+       - makeqstrdata.py（QSTR 生成）
+       - makeversionhdr.py（版本信息）
+       - makemoduledefs.py（模块定义）
+       - make_root_pointers.py（GC 根指针）
+       - makecompresseddata.py（压缩数据）
+     * `mpy/shared/` - 共享组件（runtime, libc, readline 等）
+     * `mpy/extmod/` - 扩展模块（备用）
+     * `mpy/lib/` - 第三方库（备用）
+     * `mpy/tools/` - 其他工具脚本（如 mpy-tool.py）
 
-3. **基础 REPL 支持**
-   - 实现简单的串口 REPL
-   - 基础输入输出处理
-   - 错误处理机制
+2. **构建系统配置**
+   - 创建预编译头文件生成系统
+     * 使用 `mpy/py/makeqstrdata.py` 生成 qstrdefs.generated.h
+     * 生成固定内容的 mpversion.h（三个宏定义：GIT_TAG、GIT_HASH、BUILD_DATE）
+     * 使用 `mpy/py/makemoduledefs.py` 生成 moduledefs.h
+     * 使用 `mpy/py/make_root_pointers.py` 生成 root_pointers.h
+     * 使用 `mpy/py/makecompresseddata.py` 生成 compressed.data.h
+   - 实现 QSTR 自动生成机制
+     * 扫描源文件提取 MP_QSTR_* 使用
+     * 生成 QSTR 枚举和数据结构
+   - 配置 CMakeLists.txt 选择最小编译集
+     * 参考 minimal port 的文件列表
+     * 使用条件编译控制功能模块
+     * 逐步添加文件直到链接成功
+
+3. **平台适配层实现**
+   - 基础硬件抽象
+     * mp_hal_stdout_tx_* (串口输出)
+     * mp_hal_ticks_ms (系统时钟)
+     * mp_hal_delay_* (延时函数)
+   - 内存管理对接
+     * 使用 TAL malloc/free
+     * 配置 GC 堆大小和位置
+   - 中断和任务管理
+     * 集成到 TAL 线程系统
+
+4. **最小运行时验证**
+   - 使用 MICROPY_CONFIG_ROM_LEVEL_MINIMUM 配置
+   - 启用必要功能：编译器、GC、REPL
+   - 实现 do_str() 执行简单 Python 代码
+   - 基础 REPL 循环实现
 
 **验收标准**：
-- 串口能进入 Python REPL
-- 能执行基础 Python 语句 (print, 算术运算)
-- 内存管理正常工作
+- 项目能够成功编译，无 QSTR 未定义错误
+- 能执行 `print("Hello from MicroPython on T5AI!")`
+- 基础 REPL 可以响应输入
+- 支持基本 Python 语法（变量、函数、循环等）
 
 ---
 
@@ -317,16 +375,26 @@
 - [x] 集成到 TuyaOpen 构建系统
 - [x] 成功编译生成固件
 
-### 里程碑 2：核心运行时移植
-- [ ] 集成 py 核心源文件
-- [ ] 配置 QSTR 生成脚本
-- [ ] 实现内存分配器 (gc.c)
-- [ ] 实现 mp_hal_ticks_ms
-- [ ] 实现串口输出函数
-- [ ] 实现延时函数
-- [ ] 配置中断管理
+### 里程碑 2：核心运行时移植 ✅ [已完成]
+**完成日期**：2025-09-24
+
+- [x] 复制 MicroPython 完整源码到 mpy/ 目录（保持原目录结构）
+- [x] 确认 py/ 目录中包含所有生成工具脚本
+- [x] 配置 CMakeLists.txt 最小编译文件集
+- [x] 实现 QSTR 自动生成（mpy_prepare.cmake）
+- [x] 实现 mpversion.h 生成（固定内容）
+- [x] 实现其他头文件生成（moduledefs.h, root_pointers.h, compressed.data.h）
+- [x] 实现 mp_hal_stdout_tx_* 串口输出
+- [x] 实现 mp_hal_ticks_ms 系统时钟
+- [x] 实现 mp_hal_delay_* 延时函数
+- [x] 配置 TAL 内存分配器对接
+- [x] 设置 MICROPY_CONFIG_ROM_LEVEL_MINIMUM
+- [x] 成功编译生成固件
+- [ ] 实现 do_str() 函数
 - [ ] 实现基础 REPL 循环
+- [ ] 测试 print() 函数
 - [ ] 测试基础 Python 语句执行
+- [ ] 验证内存管理正常工作
 
 ### 里程碑 3：标准库与外设驱动
 - [ ] 移植 builtins 模块
