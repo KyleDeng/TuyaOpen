@@ -5,18 +5,68 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include "tal_log.h"
 #include "tal_system.h"
 #include "tal_thread.h"
+#include "tal_uart.h"
 
-#ifdef CONFIG_ENABLE_MICROPYTHON
+/* MicroPython includes */
+#include "py/compile.h"
+#include "py/runtime.h"
+#include "py/gc.h"
+#include "py/mperrno.h"
+#include "py/stackctrl.h"
+#include "py/mphal.h"
+#include "py/nlr.h"
+#include "py/lexer.h"
+#include "py/parse.h"
+#include "shared/runtime/pyexec.h"
+
+#ifdef ENABLE_MICROPYTHON
+
+/* UART configuration for REPL */
+extern TUYA_UART_NUM_E sg_repl_uart_num;
 
 /* MicroPython task priority and stack size */
 #define MP_TASK_PRIORITY    5
 #define MP_TASK_STACK_SIZE  (8 * 1024)
 
+/* MicroPython heap configuration */
+#define MP_HEAP_SIZE        (32 * 1024)  /* 32KB heap for MicroPython GC */
+
 /* MicroPython main task handle */
 static THREAD_HANDLE sg_mp_thread = NULL;
+
+/* Static heap for MicroPython GC */
+static char mp_heap[MP_HEAP_SIZE] __attribute__((aligned(4)));
+
+/**
+ * @brief Execute a Python string
+ * @param str Python code string to execute
+ * @return 0 on success, -1 on error
+ */
+static int do_str(const char *str) {
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        /* Parse and compile the Python code */
+        mp_lexer_t *lex = mp_lexer_new_from_str_len(MP_QSTR__lt_stdin_gt_,
+                                                     str, strlen(str), 0);
+        qstr source_name = lex->source_name;
+        mp_parse_tree_t parse_tree = mp_parse(lex, MP_PARSE_FILE_INPUT);
+
+        /* Compile and execute */
+        mp_obj_t module_fun = mp_compile(&parse_tree, source_name, true);
+        mp_call_function_0(module_fun);
+
+        nlr_pop();
+        return 0;
+    } else {
+        /* Exception occurred */
+        mp_obj_print_exception(&mp_plat_print, (mp_obj_t)nlr.ret_val);
+        return -1;
+    }
+}
 
 /**
  * @brief MicroPython main task
@@ -25,19 +75,37 @@ static void micropython_task(void *arg)
 {
     PR_NOTICE("MicroPython task started");
 
-    /* TODO: Initialize MicroPython core */
-    PR_DEBUG("MicroPython version: minimal build for T5AI");
+    /* Initialize HAL first */
+    if (mp_hal_init() != 0) {
+        PR_ERR("Failed to initialize HAL");
+        return;
+    }
 
-    /* TODO: Initialize heap */
+    /* Initialize stack limit */
+    mp_stack_ctrl_init();
+    mp_stack_set_limit(MP_TASK_STACK_SIZE - 1024);
 
-    /* TODO: Initialize modules */
+    /* Initialize MicroPython heap and GC */
+    gc_init(mp_heap, mp_heap + MP_HEAP_SIZE);
 
-    /* TODO: Start REPL if enabled */
+    /* Initialize MicroPython runtime */
+    mp_init();
 
-    /* Main loop */
-    while (1) {
-        /* TODO: Run MicroPython main loop */
-        tal_system_sleep(1000); /* Sleep 1 second for now */
+    PR_NOTICE("MicroPython initialized, heap size: %d bytes", MP_HEAP_SIZE);
+
+    /* Test basic Python execution */
+    PR_NOTICE("Testing Python execution...");
+    do_str("print('Hello from MicroPython on T5AI!')");
+    do_str("print(2 + 2)");
+
+    /* Initialize REPL */
+    PR_NOTICE("Starting MicroPython REPL...");
+
+    /* Main REPL loop */
+    for (;;) {
+        if (pyexec_friendly_repl() != 0) {
+            PR_DEBUG("REPL finished, restarting...");
+        }
     }
 }
 
@@ -91,7 +159,7 @@ void micropython_deinit(void)
     PR_NOTICE("MicroPython deinitialized");
 }
 
-#else /* CONFIG_ENABLE_MICROPYTHON */
+#else /* ENABLE_MICROPYTHON */
 
 int micropython_init(void)
 {
@@ -104,4 +172,4 @@ void micropython_deinit(void)
     /* Nothing to do */
 }
 
-#endif /* CONFIG_ENABLE_MICROPYTHON */
+#endif /* ENABLE_MICROPYTHON */

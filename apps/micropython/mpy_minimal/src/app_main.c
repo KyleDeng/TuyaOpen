@@ -7,37 +7,60 @@
 #include "tal_log.h"
 #include "tal_system.h"
 #include "tal_thread.h"
-#include "tkl_init.h"
-#include "netmgr.h"
+#include "tkl_output.h"
 
+#ifdef ENABLE_MICROPYTHON
 /* MicroPython header */
 #include "micropython.h"
+#endif
+
+#ifndef PROJECT_NAME
+#define PROJECT_NAME "mpy_minimal"
+#endif
+
+#ifndef PROJECT_VERSION
+#define PROJECT_VERSION "1.0.0"
+#endif
 
 #define APP_TASK_PRIORITY       (THREAD_PRIO_2)
 #define APP_TASK_STACK_SIZE     (4096)
 
+/**
+ * @brief user defined log output callback
+ *
+ * @param str log string
+ * @return void
+ */
+static void user_log_output_cb(const char *str)
+{
+    tkl_log_output(str);
+}
+
 static void app_task(void *arg)
 {
-    PR_NOTICE("MicroPython minimal app started");
-
     /* Wait a bit for system to stabilize */
     tal_system_sleep(2000);
 
-#ifdef CONFIG_ENABLE_MICROPYTHON
+    PR_NOTICE("========================================");
+    PR_NOTICE("   Minimal Boot Firmware Started");
+    PR_NOTICE("========================================");
+
+#ifdef ENABLE_MICROPYTHON
     /* Initialize MicroPython */
     PR_NOTICE("Initializing MicroPython...");
     if (micropython_init() != 0) {
         PR_ERR("Failed to initialize MicroPython");
+        PR_NOTICE("Continuing without MicroPython...");
     } else {
         PR_NOTICE("MicroPython initialized successfully");
+        PR_NOTICE("REPL should be available on UART0 (115200 baud)");
     }
-#else
-    PR_NOTICE("MicroPython is disabled in configuration");
 #endif
 
     /* Main loop */
     while (1) {
-        tal_system_sleep(10000); /* Sleep 10 seconds */
+        PR_DEBUG("Sleep 1 seconds ...");
+        tal_system_sleep(1000); /* Sleep 1 seconds */
     }
 }
 
@@ -49,9 +72,18 @@ void tuya_app_main(void)
     OPERATE_RET rt = OPRT_OK;
     THREAD_HANDLE app_thread = NULL;
 
-    PR_NOTICE("========================================");
-    PR_NOTICE("   MicroPython Minimal for T5AI");
-    PR_NOTICE("========================================");
+    /* Initialize log system first with user callback */
+    tal_log_init(TAL_LOG_LEVEL_DEBUG, 1024, user_log_output_cb);
+
+    PR_NOTICE("Application information:");
+    PR_NOTICE("Project name:        %s", PROJECT_NAME);
+    PR_NOTICE("App version:         %s", PROJECT_VERSION);
+    PR_NOTICE("Compile time:        %s", __DATE__);
+    PR_NOTICE("TuyaOpen version:    %s", OPEN_VERSION);
+    PR_NOTICE("TuyaOpen commit-id:  %s", OPEN_COMMIT);
+    PR_NOTICE("Platform chip:       %s", PLATFORM_CHIP);
+    PR_NOTICE("Platform board:      %s", PLATFORM_BOARD);
+    PR_NOTICE("Platform commit-id:  %s", PLATFORM_COMMIT);
 
     /* Create application task */
     THREAD_CFG_T thread_cfg = {
@@ -65,6 +97,4 @@ void tuya_app_main(void)
         PR_ERR("Failed to create app task: %d", rt);
         return;
     }
-
-    PR_NOTICE("Application started successfully");
 }

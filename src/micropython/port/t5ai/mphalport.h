@@ -12,6 +12,9 @@
 /* Include MicroPython types */
 #include "py/mpconfig.h"
 
+/* HAL initialization */
+int mp_hal_init(void);
+
 /* System tick functions - match MicroPython's expected signatures */
 mp_uint_t mp_hal_ticks_ms(void);
 mp_uint_t mp_hal_ticks_us(void);

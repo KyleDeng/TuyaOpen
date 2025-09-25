@@ -11,7 +11,7 @@
 #include "tkl_gpio.h"
 
 /* UART handle for REPL */
-static TUYA_UART_NUM_E sg_repl_uart_num = TUYA_UART_NUM_0;
+TUYA_UART_NUM_E sg_repl_uart_num = TUYA_UART_NUM_0;
 
 /* System tick functions */
 mp_uint_t mp_hal_ticks_ms(void)
