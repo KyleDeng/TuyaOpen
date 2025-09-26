@@ -35,7 +35,7 @@ set(PY_CORE_SRCS
     ${MPY_PY_DIR}/pystack.c
     ${MPY_PY_DIR}/qstr.c
     ${MPY_PY_DIR}/vstr.c
-    ${MPY_PY_DIR}/mpprint.c
+    ${MPY_PY_DIR}/mpprint.c  # Needed for print functions, mp_plat_print is in mpprint_port.c
     ${MPY_PY_DIR}/unicode.c
     ${MPY_PY_DIR}/mpz.c
     ${MPY_PY_DIR}/malloc.c
@@ -112,6 +112,14 @@ set(PY_CORE_SRCS
     ${MPY_PY_DIR}/builtinevex.c
     ${MPY_PY_DIR}/builtinhelp.c
 
+    # Iterator support (needed for CORE_FEATURES)
+    ${MPY_PY_DIR}/objgetitemiter.c
+    ${MPY_PY_DIR}/objpolyiter.c
+    ${MPY_PY_DIR}/objmap.c
+    ${MPY_PY_DIR}/objenumerate.c
+    ${MPY_PY_DIR}/objfilter.c
+    ${MPY_PY_DIR}/objreversed.c
+
     # Minimal modules
     ${MPY_PY_DIR}/modarray.c
     ${MPY_PY_DIR}/modbuiltins.c
@@ -140,9 +148,7 @@ set(PY_CORE_SRCS
 
 # Shared components
 set(SHARED_SRCS
-    ${MPY_SHARED_DIR}/libc/printf.c
-    ${MPY_SHARED_DIR}/libc/string0.c
-    # ${MPY_SHARED_DIR}/readline/readline.c  # Disabled - requires MP_STATE_PORT support
+    ${MPY_SHARED_DIR}/readline/readline.c  # Required for REPL
     ${MPY_SHARED_DIR}/runtime/pyexec.c
     ${MPY_SHARED_DIR}/runtime/stdout_helpers.c
     ${MPY_SHARED_DIR}/runtime/sys_stdio_mphal.c
@@ -153,7 +159,7 @@ set(SHARED_SRCS
 set(PORT_SRCS
     ${MODULE_PATH}/port/t5ai/main.c
     ${MODULE_PATH}/port/t5ai/mphalport.c
-    ${MODULE_PATH}/port/t5ai/mpprint_port.c
+    ${MODULE_PATH}/port/t5ai/port_misc.c  # Misc port functions (gc_collect, nlr_jump_fail, etc.)
 )
 
 # Combine all sources
@@ -182,7 +188,7 @@ set(LIB_PRIVATE_INC
     ${MPY_DIR}
     ${MPY_PY_DIR}
     ${GENHDR_INC}
-    ${CMAKE_BINARY_DIR}  # For generated headers
+    # ${CMAKE_BINARY_DIR}  # For generated headers
 )
 
 # Compile definitions

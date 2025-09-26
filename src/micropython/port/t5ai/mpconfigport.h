@@ -46,8 +46,8 @@
 #define MICROPY_NLR_THUMB           (1)
 #define MICROPY_LONGINT_IMPL        (MICROPY_LONGINT_IMPL_MPZ)
 
-/* Use the minimal configuration level */
-#define MICROPY_CONFIG_ROM_LEVEL    (MICROPY_CONFIG_ROM_LEVEL_MINIMUM)
+/* Use core features configuration level for basic Python functionality */
+#define MICROPY_CONFIG_ROM_LEVEL    (MICROPY_CONFIG_ROM_LEVEL_CORE_FEATURES)
 
 /* Type definitions for T5AI */
 typedef intptr_t mp_int_t;
@@ -60,9 +60,17 @@ typedef long mp_off_t;
 /* Minimal heap size for testing */
 #define MICROPY_HEAP_SIZE           (8 * 1024)
 
-/* Readline configuration - disable history for minimal build */
+/* Readline configuration */
 #define MICROPY_PY_SYS_STDFILES     (0)
-#define MICROPY_HELPER_READLINE     (0)  /* Disable readline for now */
+#define MICROPY_HELPER_READLINE     (1)  /* Enable readline for REPL */
+#define MICROPY_HELPER_REPL         (1)  /* Enable REPL helper */
+#define MICROPY_READLINE_HISTORY_SIZE (8)  /* Enable readline history with 8 entries */
+
+/* Define global readline history array */
+extern const char *readline_hist[8];
+
+/* Define MP_STATE_PORT macro to access global variables */
+#define MP_STATE_PORT(x) (x)
 
 /* Port-specific state structure - empty for minimal build */
 #define MICROPY_PORT_ROOT_POINTERS
@@ -70,8 +78,11 @@ typedef long mp_off_t;
 /* Include HAL header */
 #include "mphalport.h"
 
-/* Dummy macros for now */
+/* Use our custom print implementation */
 #define MP_PLAT_PRINT_STRN(str, len) mp_hal_stdout_tx_strn_cooked(str, len)
+
+/* Tell MicroPython we have our own mp_plat_print */
+extern const struct _mp_print_t mp_plat_print;
 
 /* Define some basic functions as macros for minimal build */
 #define mp_type_print(x, y, z)

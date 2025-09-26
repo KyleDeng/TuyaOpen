@@ -13,6 +13,9 @@
 /* UART handle for REPL */
 TUYA_UART_NUM_E sg_repl_uart_num = TUYA_UART_NUM_0;
 
+/* Readline history buffer - global array for command history */
+const char *readline_hist[8] = {0};
+
 /* System tick functions */
 mp_uint_t mp_hal_ticks_ms(void)
 {
@@ -174,9 +177,12 @@ int mp_hal_init(void)
     uart_cfg.base_cfg.stopbits = TUYA_UART_STOP_LEN_1BIT;
     uart_cfg.base_cfg.parity = TUYA_UART_PARITY_TYPE_NONE;
     uart_cfg.base_cfg.flowctrl = TUYA_UART_FLOWCTRL_NONE;
+    uart_cfg.rx_buffer_size = 256;
+    uart_cfg.open_mode = O_BLOCK;
 
-    if (tal_uart_init(sg_repl_uart_num, &uart_cfg) != OPRT_OK) {
-        PR_ERR("Failed to initialize REPL UART");
+    OPERATE_RET ret = tal_uart_init(sg_repl_uart_num, &uart_cfg);
+    if (OPRT_OK != ret) {
+        PR_ERR("Failed to initialize REPL UART: %d", ret);
         return -1;
     }
 
