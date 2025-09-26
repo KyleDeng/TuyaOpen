@@ -49,6 +49,9 @@
 /* Use core features configuration level for basic Python functionality */
 #define MICROPY_CONFIG_ROM_LEVEL    (MICROPY_CONFIG_ROM_LEVEL_CORE_FEATURES)
 
+/* Enable module registration (needed for MP_REGISTER_MODULE to work) */
+#define MICROPY_MODULE_BUILTIN_INIT      (1)  /* Enable built-in module initialization */
+
 /* Type definitions for T5AI */
 typedef intptr_t mp_int_t;
 typedef uintptr_t mp_uint_t;
@@ -98,15 +101,16 @@ extern const struct _mp_print_t mp_plat_print;
 #define MICROPY_USE_INTERNAL_ERRNO  (0)
 #define MICROPY_ENABLE_SCHEDULER    (0)
 
-/* Module configuration */
+/* Module configuration - Only enable gc for Milestone 2 */
 #define MICROPY_PY___FILE__         (0)
-#define MICROPY_PY_GC               (0)
-#define MICROPY_PY_ARRAY            (0)
-#define MICROPY_PY_COLLECTIONS      (0)
-#define MICROPY_PY_MATH             (0)
-#define MICROPY_PY_IO               (0)
-#define MICROPY_PY_STRUCT           (0)
-#define MICROPY_PY_SYS              (0)
+#define MICROPY_PY_GC               (1)  /* Enable gc module for memory management verification */
+#define MICROPY_PY_MICROPYTHON      (0)  /* Disable for now - next milestone */
+#define MICROPY_PY_ARRAY            (0)  /* Disable for now - next milestone */
+#define MICROPY_PY_COLLECTIONS      (0)  /* Disable for now - next milestone */
+#define MICROPY_PY_MATH             (0)  /* Disable for now - next milestone */
+#define MICROPY_PY_IO               (0)  /* Disable for now - next milestone */
+#define MICROPY_PY_STRUCT           (0)  /* Disable for now - next milestone */
+#define MICROPY_PY_SYS              (0)  /* Disable for now - next milestone */
 #define MICROPY_PY_UTIME            (0)
 
 /* Machine module configuration (disabled for now) */

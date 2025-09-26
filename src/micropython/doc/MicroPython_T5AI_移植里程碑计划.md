@@ -21,7 +21,6 @@
 
 ### 里程碑 1：最小可编译框架 (3-5天) ✅ [已完成]
 **目标**：建立 MicroPython 组件基础架构，实现空壳编译
-**完成日期**：2025-09-22
 
 #### 主要任务：
 1. **创建组件目录结构**
@@ -57,7 +56,7 @@
 
 ---
 
-### 里程碑 2：核心运行时移植 (7-10天)
+### 里程碑 2：核心运行时移植 (7-10天) ✅ [已完成]
 **目标**：实现 MicroPython 核心解释器在 T5AI 上运行
 
 #### 实施策略
@@ -133,6 +132,28 @@
 - 能执行 `print("Hello from MicroPython on T5AI!")`
 - 基础 REPL 可以响应输入
 - 支持基本 Python 语法（变量、函数、循环等）
+- gc模块内存回收功能验证
+
+```python
+import gc
+
+dir(gc)
+
+print("Step1: Init")
+gc.mem_free()
+gc.mem_alloc()
+
+print("Step2: Use some memory")
+a = [1, 2, 3, 4, 5] * 100
+gc.mem_free()
+gc.mem_alloc()
+
+print("Step3: Free some memory")
+del a
+gc.collect()
+gc.mem_free()
+gc.mem_alloc()
+```
 
 ---
 
@@ -375,8 +396,7 @@
 - [x] 集成到 TuyaOpen 构建系统
 - [x] 成功编译生成固件
 
-### 里程碑 2：核心运行时移植 ✅ [已完成]
-**完成日期**：2025-09-24
+### 里程碑 2：核心运行时移植 ✅
 
 - [x] 复制 MicroPython 完整源码到 mpy/ 目录（保持原目录结构）
 - [x] 确认 py/ 目录中包含所有生成工具脚本
@@ -388,13 +408,13 @@
 - [x] 实现 mp_hal_ticks_ms 系统时钟
 - [x] 实现 mp_hal_delay_* 延时函数
 - [x] 配置 TAL 内存分配器对接
-- [x] 设置 MICROPY_CONFIG_ROM_LEVEL_MINIMUM
+- [x] 设置 MICROPY_CONFIG_ROM_LEVEL_CORE_FEATURES
 - [x] 成功编译生成固件
-- [ ] 实现 do_str() 函数
-- [ ] 实现基础 REPL 循环
-- [ ] 测试 print() 函数
-- [ ] 测试基础 Python 语句执行
-- [ ] 验证内存管理正常工作
+- [x] 实现 do_str() 函数
+- [x] 实现基础 REPL 循环
+- [x] 测试 print() 函数
+- [x] 测试基础 Python 语句执行
+- [x] 验证内存管理正常工作（gc 模块）
 
 ### 里程碑 3：标准库与外设驱动
 - [ ] 移植 builtins 模块

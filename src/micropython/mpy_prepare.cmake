@@ -46,17 +46,15 @@ set(MAKEMODULEDEFS_PY ${MPY_PY_DIR}/makemoduledefs.py)
 add_custom_command(
     OUTPUT ${MODULEDEFS_COLLECTED}
     COMMAND ${CMAKE_COMMAND} -E echo "Collecting module definitions..."
-    COMMAND ${CMAKE_COMMAND} -E remove -f ${MODULEDEFS_COLLECTED}
-    COMMAND ${CMAKE_COMMAND} -E touch ${MODULEDEFS_COLLECTED}
 
-    # Extract MP_REGISTER_MODULE from all source files
-    COMMAND ${CMAKE_COMMAND}
-        -DSOURCE_FILES="${LIB_SRCS}"
-        -DOUTPUT_FILE=${MODULEDEFS_COLLECTED}
-        -DPATTERN="MP_REGISTER_MODULE"
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/extract_pattern.cmake
+    # Use Python script to extract MP_REGISTER_MODULE from all source files
+    # This avoids CMake's issues with semicolons and quotes
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/cmake/extract_modules.py
+        ${MODULEDEFS_COLLECTED}
+        "MP_REGISTER_MODULE"
+        ${LIB_SRCS}
 
-    DEPENDS ${LIB_SRCS}
+    DEPENDS ${LIB_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/extract_modules.py
     COMMENT "Extracting module definitions from source files"
     VERBATIM
 )
@@ -89,17 +87,14 @@ set(MAKE_ROOT_POINTERS_PY ${MPY_PY_DIR}/make_root_pointers.py)
 add_custom_command(
     OUTPUT ${ROOT_POINTERS_COLLECTED}
     COMMAND ${CMAKE_COMMAND} -E echo "Collecting root pointer definitions..."
-    COMMAND ${CMAKE_COMMAND} -E remove -f ${ROOT_POINTERS_COLLECTED}
-    COMMAND ${CMAKE_COMMAND} -E touch ${ROOT_POINTERS_COLLECTED}
 
-    # Extract MP_REGISTER_ROOT_POINTER from all source files
-    COMMAND ${CMAKE_COMMAND}
-        -DSOURCE_FILES="${LIB_SRCS}"
-        -DOUTPUT_FILE=${ROOT_POINTERS_COLLECTED}
-        -DPATTERN="MP_REGISTER_ROOT_POINTER"
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/extract_pattern.cmake
+    # Use Python script to extract MP_REGISTER_ROOT_POINTER from all source files
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/cmake/extract_modules.py
+        ${ROOT_POINTERS_COLLECTED}
+        "MP_REGISTER_ROOT_POINTER"
+        ${LIB_SRCS}
 
-    DEPENDS ${LIB_SRCS}
+    DEPENDS ${LIB_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/extract_modules.py
     COMMENT "Extracting root pointer definitions from source files"
     VERBATIM
 )

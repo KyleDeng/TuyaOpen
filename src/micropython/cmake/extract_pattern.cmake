@@ -18,38 +18,50 @@ foreach(SRC_FILE ${SOURCE_FILE_LIST})
     if(EXISTS ${SRC_FILE})
         # Read the file content
         file(READ ${SRC_FILE} FILE_CONTENT)
+
+        # CMake treats semicolons as list separators, which interferes with regex matching
+        # Replace semicolons with a placeholder before processing
+        string(REPLACE ";" "__SEMICOLON__" FILE_CONTENT "${FILE_CONTENT}")
         
         # Extract lines containing the pattern
         # For MP_REGISTER_MODULE, we want the entire macro call
         if(PATTERN STREQUAL "MP_REGISTER_MODULE")
-            # Match MP_REGISTER_MODULE(...) including multi-line
-            string(REGEX MATCHALL "MP_REGISTER_MODULE\\([^)]*\\)" MATCHES "${FILE_CONTENT}")
+            # Match MP_REGISTER_MODULE(...); with placeholder for semicolon
+            string(REGEX MATCHALL "MP_REGISTER_MODULE\\([^)]*\\)__SEMICOLON__" MATCHES "${FILE_CONTENT}")
 
             foreach(MATCH ${MATCHES})
                 # Clean up the match (remove excessive whitespace/newlines)
                 string(REGEX REPLACE "\n" " " CLEAN_MATCH "${MATCH}")
                 string(REGEX REPLACE "[ \t]+" " " CLEAN_MATCH "${CLEAN_MATCH}")
 
-                # Write to output file
+                # Replace placeholder back to semicolon
+                string(REPLACE "__SEMICOLON__" ";" CLEAN_MATCH "${CLEAN_MATCH}")
+
+                # Write to output file with semicolon
                 file(APPEND ${OUTPUT_FILE} "${CLEAN_MATCH}\n")
 
-                # Debug output
-                message(STATUS "Found: ${CLEAN_MATCH}")
+                # Debug output (remove semicolon for display)
+                string(REGEX REPLACE ";$" "" DISPLAY_MATCH "${CLEAN_MATCH}")
+                message(STATUS "Found: ${DISPLAY_MATCH}")
             endforeach()
         elseif(PATTERN STREQUAL "MP_REGISTER_ROOT_POINTER")
-            # Match MP_REGISTER_ROOT_POINTER(...) including multi-line
-            string(REGEX MATCHALL "MP_REGISTER_ROOT_POINTER\\([^)]*\\)" MATCHES "${FILE_CONTENT}")
+            # Match MP_REGISTER_ROOT_POINTER(...); with placeholder for semicolon
+            string(REGEX MATCHALL "MP_REGISTER_ROOT_POINTER\\([^)]*\\)__SEMICOLON__" MATCHES "${FILE_CONTENT}")
 
             foreach(MATCH ${MATCHES})
                 # Clean up the match (remove excessive whitespace/newlines)
                 string(REGEX REPLACE "\n" " " CLEAN_MATCH "${MATCH}")
                 string(REGEX REPLACE "[ \t]+" " " CLEAN_MATCH "${CLEAN_MATCH}")
 
-                # Write to output file
+                # Replace placeholder back to semicolon
+                string(REPLACE "__SEMICOLON__" ";" CLEAN_MATCH "${CLEAN_MATCH}")
+
+                # Write to output file with semicolon
                 file(APPEND ${OUTPUT_FILE} "${CLEAN_MATCH}\n")
 
-                # Debug output
-                message(STATUS "Found: ${CLEAN_MATCH}")
+                # Debug output (remove semicolon for display)
+                string(REGEX REPLACE ";$" "" DISPLAY_MATCH "${CLEAN_MATCH}")
+                message(STATUS "Found: ${DISPLAY_MATCH}")
             endforeach()
         else()
             # Generic pattern matching (for other potential uses)

@@ -120,16 +120,16 @@ set(PY_CORE_SRCS
     ${MPY_PY_DIR}/objfilter.c
     ${MPY_PY_DIR}/objreversed.c
 
-    # Minimal modules
-    ${MPY_PY_DIR}/modarray.c
-    ${MPY_PY_DIR}/modbuiltins.c
-    ${MPY_PY_DIR}/modcollections.c
-    ${MPY_PY_DIR}/modgc.c
-    ${MPY_PY_DIR}/modio.c
-    ${MPY_PY_DIR}/modmicropython.c
-    ${MPY_PY_DIR}/modstruct.c
-    ${MPY_PY_DIR}/modsys.c
-    ${MPY_PY_DIR}/moderrno.c
+    # Minimal modules - Only include enabled ones to avoid link errors
+    # ${MPY_PY_DIR}/modarray.c        # Disabled - MICROPY_PY_ARRAY = 0
+    ${MPY_PY_DIR}/modbuiltins.c      # Always needed
+    # ${MPY_PY_DIR}/modcollections.c  # Disabled - MICROPY_PY_COLLECTIONS = 0
+    ${MPY_PY_DIR}/modgc.c            # Enabled - MICROPY_PY_GC = 1
+    # ${MPY_PY_DIR}/modio.c           # Disabled - MICROPY_PY_IO = 0
+    # ${MPY_PY_DIR}/modmicropython.c  # Disabled - MICROPY_PY_MICROPYTHON = 0
+    # ${MPY_PY_DIR}/modstruct.c       # Disabled - MICROPY_PY_STRUCT = 0
+    # ${MPY_PY_DIR}/modsys.c          # Disabled - MICROPY_PY_SYS = 0
+    ${MPY_PY_DIR}/moderrno.c         # Keep for basic error handling
 
     # Number parsing
     ${MPY_PY_DIR}/parsenumbase.c
